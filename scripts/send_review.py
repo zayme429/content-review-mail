@@ -3,9 +3,9 @@
 示例：发送内容审核邮件
 """
 import sys
+from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from pathlib import Path
 from content_review_mail import ContentReviewMail
 
 def main():
@@ -37,17 +37,20 @@ def main():
         }
     ]
     
+    to_email = crm.config['review'].get('default_recipient')
+    
     # 发送审核邮件
     result = crm.send_review_email(
-        topic='AI Agent 发展趋势',
+        to=to_email,
+        subject='【待审核】AI Agent 发展趋势',
         candidates=candidates,
-        to_email=crm.config['review'].get('default_recipient')
+        article_date=__import__('datetime').datetime.now().strftime('%Y-%m-%d')
     )
     
     print(f"✅ 邮件已发送")
     print(f"   主题: AI Agent 发展趋势")
     print(f"   候选数: {len(candidates)}")
-    print(f"   收件人: {crm.config['review'].get('default_recipient')}")
+    print(f"   收件人: {to_email}")
 
 if __name__ == '__main__':
     main()

@@ -3,9 +3,9 @@
 示例：检查审核回复
 """
 import sys
+from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from pathlib import Path
 from content_review_mail import ContentReviewMail
 
 def main():
