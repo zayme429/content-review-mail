@@ -36,6 +36,8 @@ ENV/
 config/config.json
 config/*.json
 !config/config.example.json
+!content-pipeline/config/*.json
+!content-pipeline/config/prompts/
 
 # 状态文件和日志
 state/
