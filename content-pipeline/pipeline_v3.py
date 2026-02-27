@@ -293,6 +293,9 @@ class ContentPipelineV3:
             for j, ref in enumerate(design['refs'], 1):
                 refs_text += f"\n参考{j}：{ref['title']}\n来源：{ref['source']}\n内容：{ref.get('full_text', ref.get('summary', ''))[:1000]}\n"
 
+            writing_rules = self.config.get('content_strategy', {}).get('writing_rules', [])
+            rules_text = '\n'.join([f'{i+6}. {r}' for i, r in enumerate(writing_rules)])
+
             prompt = f"""你是一位资深科技专栏作家。
 
 文章题目：{design['title']}
@@ -308,6 +311,7 @@ class ContentPipelineV3:
 3. 必须引用参考文献中的具体数据或观点，并标注来源
 4. 风格：{design['angle']}，有温度，有洞见
 5. 拒绝陈词滥调和贩卖焦虑
+{rules_text}
 
 直接输出文章正文，不要输出其他内容。"""
 
