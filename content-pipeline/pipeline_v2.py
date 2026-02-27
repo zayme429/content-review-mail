@@ -36,6 +36,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _load_secrets():
+    """加载敏感配置"""
+    secrets_path = Path('/root/.openclaw/workspace/content-pipeline/config/secrets.json')
+    if secrets_path.exists():
+        with open(secrets_path) as f:
+            return json.load(f)
+    raise FileNotFoundError(f"secrets.json not found: {secrets_path}\nCopy config/secrets.example.json to config/secrets.json and fill in your values.")
+
 class AdvancedContentPipeline:
     """高级内容管理Pipeline"""
     
@@ -44,6 +53,7 @@ class AdvancedContentPipeline:
         
         # 加载配置
         self.config = self._load_json('config/pipeline.json')
+        self.secrets = _load_secrets()
         self.system_config = self._load_json('config/content_system.json')
         
         # 初始化组件
@@ -134,13 +144,11 @@ class AdvancedContentPipeline:
             smtp_config = {
                 'host': 'smtp.163.com',
                 'port': 465,
-                'user': '13257667003@163.com',
-                'pass': 'XUnhjmQwxUa7pKFt',
-                'from': '13257667003@163.com'
+                **self.secrets['smtp']
             }
             mail_sender = ReviewMailSender(smtp_config)
             email_sent = mail_sender.send_html_review_email(
-                to='ZaymeShaw199742@outlook.com',
+                to=self.secrets['review']['recipient'],
                 candidates=candidates_with_content,
                 article_date=today
             )
@@ -259,7 +267,7 @@ class AdvancedContentPipeline:
                 capture_output=True,
                 text=True,
                 timeout=120,
-                env={**os.environ, 'WECHAT_APP_ID': 'wx5c6f2e9b5734ddd5', 'WECHAT_APP_SECRET': 'baf071b9ca8e805992a26111c552b9f9'}
+                env={**os.environ, 'WECHAT_APP_ID': self.secrets['wechat']['app_id'], 'WECHAT_APP_SECRET': self.secrets['wechat']['app_secret']}
             )
             
             if '上传成功' in result.stdout:

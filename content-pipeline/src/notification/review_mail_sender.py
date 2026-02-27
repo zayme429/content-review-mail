@@ -39,7 +39,7 @@ class ReviewMailSender:
             msg['Subject'] = f'📄 内容审核 - {article_date} ({len(candidates)}篇完整文章)'
             msg['From'] = f"Content Bot <{self.smtp['from']}>"
             msg['To'] = to
-            msg['Reply-To'] = 'zaymeclawstart.rpd217@zapiermail.com'  # Zapier邮箱
+            msg['Reply-To'] = self.smtp.get('zapier_email', self.smtp.get('from', ''))  # 回复地址
             
             msg.attach(MIMEText(html, 'html', 'utf-8'))
             

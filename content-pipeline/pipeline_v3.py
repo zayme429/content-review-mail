@@ -33,10 +33,20 @@ BASE_DIR = Path('/root/.openclaw/workspace/content-pipeline')
 WECHAT_SEARCH = Path.home() / '.openclaw/workspace/skills/wechat-search/wechat_search.py'
 
 
+
+def _load_secrets():
+    """加载敏感配置"""
+    secrets_path = Path('/root/.openclaw/workspace/content-pipeline/config/secrets.json')
+    if secrets_path.exists():
+        with open(secrets_path) as f:
+            return json.load(f)
+    raise FileNotFoundError(f"secrets.json not found: {secrets_path}\nCopy config/secrets.example.json to config/secrets.json and fill in your values.")
+
 class ContentPipelineV3:
 
     def __init__(self):
         self.config = self._load_json('config/pipeline.json')
+        self.secrets = _load_secrets()
         self.generator = ContentGenerator()
         self.collector = RSSCollector()
         self.db = ContentDatabase()
@@ -158,7 +168,7 @@ class ContentPipelineV3:
     def _tavily_search(self, query: str, max_results: int = 5) -> list:
         """调用 Tavily Search API"""
         import urllib.request
-        api_key = os.environ.get('TAVILY_API_KEY', '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')
+        api_key = os.environ.get('TAVILY_API_KEY') or self.secrets.get('tavily', {}).get('api_key', '')
         data = json.dumps({
             'api_key': api_key,
             'query': query,
@@ -357,10 +367,10 @@ class ContentPipelineV3:
         logger.info(f"✅ 保存数据库 ID: {article_id}")
 
         # 发送审核邮件
-        smtp = json.load(open(BASE_DIR.parent / 'skills/content-review-mail/config/config.json'))['smtp']
+        smtp = self.secrets['smtp']
         mail_sender = ReviewMailSender(smtp)
         mail_sender.send_html_review_email(
-            to='ZaymeShaw199742@outlook.com',
+            to=self.secrets['review']['recipient'],
             candidates=candidates,
             article_date=today,
             topic_info=topic_info,
@@ -374,7 +384,7 @@ class ContentPipelineV3:
             result = subprocess.run(
                 ['wenyan', 'publish', '-f', str(best_file), '-t', 'lapis', '-h', 'solarized-light'],
                 capture_output=True, text=True, timeout=120,
-                env={**os.environ, 'WECHAT_APP_ID': 'wx5c6f2e9b5734ddd5', 'WECHAT_APP_SECRET': 'baf071b9ca8e805992a26111c552b9f9'}
+                env={**os.environ, 'WECHAT_APP_ID': self.secrets['wechat']['app_id'], 'WECHAT_APP_SECRET': self.secrets['wechat']['app_secret']}
             )
             if '上传成功' in result.stdout or 'media_id' in result.stdout:
                 logger.info(f"✅ 候选 {best_idx}「{best['topic']}」已推送到草稿箱")

@@ -1,8 +1,11 @@
 # 运行时生成文件
-content-pipeline/logs/*.log
-content-pipeline/database/*.db
-content-pipeline/output/*
-content-pipeline/feedback/*
-content-pipeline/memory/published.json
+logs/*.log
+database/*.db
+output/*
+feedback/*
+memory/published.json
 __pycache__/
 *.pyc
+
+# 敏感配置
+config/secrets.json
