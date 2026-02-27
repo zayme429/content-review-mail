@@ -175,12 +175,19 @@ class AdvancedContentPipeline:
         for i, c in enumerate(candidates, 1):
             file_path = output_dir / f'candidate_{i}.md'
             with open(file_path, 'w', encoding='utf-8') as f:
+                # YAML frontmatter - 避免特殊字符导致解析错误
+                title = c['topic'].replace('"', '').replace("'", '')
+                angle = c.get('angle', '').replace('"', '').replace("'", '')
+                angle_type = c.get('angle_type', '').replace('"', '').replace("'", '')
+                # 默认封面（微信公众号要求必须有封面）
+                cover = c.get('cover', 'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=900')
                 f.write(f"---\n")
-                f.write(f"title: \"{c['topic']}\"\n")
-                f.write(f"angle: \"{c['angle']}\"\n")
-                f.write(f"type: \"{c['angle_type']}\"\n")
+                f.write(f"title: {title}\n")
+                f.write(f"angle: {angle}\n")
+                f.write(f"type: {angle_type}\n")
                 f.write(f"quality_score: {c['quality_score']}\n")
                 f.write(f"uniqueness_score: {c['uniqueness_score']}\n")
+                f.write(f"cover: {cover}\n")
                 f.write(f"---\n\n")
                 f.write(c['content'])
         
