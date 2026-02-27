@@ -18,18 +18,21 @@ class ReviewMailSender:
     def __init__(self, smtp_config: dict):
         self.smtp = smtp_config
         
-    def send_html_review_email(self, to: str, candidates: list, article_date: str) -> bool:
+    def send_html_review_email(self, to: str, candidates: list, article_date: str,
+                               topic_info: dict = None, literature: list = None) -> bool:
         """
         发送HTML格式的审核邮件（完整文章 + 优化排版）
-        
+
         Args:
             to: 收件人邮箱
             candidates: 候选文章列表（包含完整内容）
             article_date: 文章日期
+            topic_info: 主题信息（主题、方向、关键词）
+            literature: 文献集合
         """
         try:
             # 构建HTML邮件
-            html = self._build_html_email(candidates, article_date)
+            html = self._build_html_email(candidates, article_date, topic_info, literature)
             
             # 创建邮件
             msg = MIMEMultipart('alternative')
@@ -53,9 +56,39 @@ class ReviewMailSender:
             logger.error(f"❌ 发送邮件失败: {e}")
             return False
     
-    def _build_html_email(self, candidates: list, article_date: str) -> str:
+    def _build_html_email(self, candidates: list, article_date: str,
+                          topic_info: dict = None, literature: list = None) -> str:
         """构建HTML邮件内容"""
-        
+
+        # 主题信息 HTML
+        topic_html = ""
+        if topic_info:
+            keywords = ', '.join(topic_info.get('keywords', []))
+            direction = topic_info.get('direction', '')
+            mode_map = {'manual': '手动指定', 'config': '配置文件', 'auto': '自动热点'}
+            mode = mode_map.get(topic_info.get('mode', ''), topic_info.get('mode', ''))
+            topic_html = f"""
+<div class="topic-box">
+    <strong>🎯 本期主题：{topic_info.get('topic', '')}</strong><br>
+    <span>确定方式：{mode} | 关键词：{keywords}</span>
+    {'<br><span>写作方向：' + direction + '</span>' if direction else ''}
+</div>"""
+
+        # 文献集合 HTML
+        literature_html = ""
+        if literature:
+            literature_html = "<div class='literature-box'><strong>📚 文献集合（共{}篇）：</strong><ul>".format(len(literature))
+            for i, lit in enumerate(literature, 1):
+                url = lit.get('url', '')
+                title = lit.get('title', '')
+                source = lit.get('source', '')
+                summary = lit.get('summary', '')[:100]
+                if url:
+                    literature_html += f"<li>[{i}] <a href='{url}'>{title}</a>（{source}）<br><small>{summary}</small></li>"
+                else:
+                    literature_html += f"<li>[{i}] {title}（{source}）<br><small>{summary}</small></li>"
+            literature_html += "</ul></div>"
+
         # 构建候选文章HTML
         candidates_html = ""
         for i, c in enumerate(candidates, 1):
@@ -202,6 +235,38 @@ body {{
     font-size: 13px; 
     text-align: center; 
 }}
+.topic-box {{
+    background: #f0f4ff;
+    border-left: 4px solid #667eea;
+    padding: 15px 20px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+}}
+.literature-box {{
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 20px 0;
+    font-size: 13px;
+}}
+.literature-box ul {{
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+}}
+.literature-box li {{
+    margin-bottom: 8px;
+    line-height: 1.6;
+}}
+.literature-box a {{
+    color: #0066cc;
+    text-decoration: none;
+}}
+.literature-box small {{
+    color: #888;
+    display: block;
+}}
 </style>
 </head>
 <body>
@@ -217,6 +282,10 @@ body {{
     • 内容偏好：实战派、配置代码、成本数据（根据反馈固化）<br>
     • 反馈机制：自动记录选择，优化后续生成
 </div>
+
+{topic_html}
+
+{literature_html}
 
 {candidates_html}
 

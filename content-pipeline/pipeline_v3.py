@@ -93,94 +93,86 @@ class ContentPipelineV3:
     # Step 2: 文献采集
     # ─────────────────────────────────────────
     def collect_literature(self, topic_info: dict) -> list:
-        """搜索并抓取文献全文"""
+        """搜索并抓取文献全文 - 使用 Tavily Search API"""
         logger.info("=== Step 2: 文献采集 ===")
         keywords = topic_info.get('keywords', [topic_info['topic']])
         literature = []
 
-        # 方案A: RSS 采集相关文章
-        try:
-            news = self.collector.collect_all()
-            topic_kws = keywords + [topic_info['topic']]
-            for item in news:
-                title = item.get('title', '')
-                if any(kw in title for kw in topic_kws):
+        for kw in keywords[:3]:
+            logger.info(f"搜索关键词: {kw}")
+
+            # 微信公众号搜索
+            try:
+                results = self._tavily_search(f"{kw} site:mp.weixin.qq.com", max_results=5)
+                for r in results:
                     literature.append({
-                        'title': title,
-                        'url': item.get('url', item.get('link', '')),
-                        'source': item.get('source', 'RSS'),
-                        'summary': item.get('summary', item.get('description', '')),
-                        'full_text': '',
-                        'search_keyword': topic_info['topic']
+                        'title': r.get('title', ''),
+                        'url': r.get('url', ''),
+                        'source': '微信公众号',
+                        'summary': r.get('content', '')[:300],
+                        'full_text': r.get('content', ''),
+                        'search_keyword': kw
                     })
-            logger.info(f"  RSS 相关文章: {len(literature)} 篇")
-        except Exception as e:
-            logger.warning(f"  RSS 采集失败: {e}")
+                logger.info(f"  微信搜索: {len(results)} 篇")
+            except Exception as e:
+                logger.warning(f"  微信搜索失败: {e}")
 
-        # 方案B: 用 Kimi 联网搜索补充文献
-        logger.info("  使用 LLM 联网搜索补充文献...")
-        try:
-            search_prompt = f"""请搜索关于"{topic_info['topic']}"的最新文章和资料。
-
-要求：
-1. 找5-8篇高质量的相关文章（微信公众号、知乎、36氪、InfoQ等）
-2. 每篇提供：标题、来源、URL（如果知道）、核心观点摘要（100字）
-
-输出格式：
----
-标题：[文章标题]
-来源：[来源名称]
-URL：[文章链接，如不确定填"未知"]
-摘要：[核心观点100字]
----"""
-            result = self.generator._call_llm(search_prompt)
-            # 解析 LLM 返回的文献列表
-            blocks = result.split('---')
-            for block in blocks:
-                if '标题：' in block or '标题:' in block:
-                    item = {'title': '', 'url': '', 'source': '', 'summary': '', 'full_text': '', 'search_keyword': topic_info['topic']}
-                    for line in block.strip().split('\n'):
-                        if '标题：' in line or '标题:' in line:
-                            item['title'] = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                        elif '来源：' in line or '来源:' in line:
-                            item['source'] = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                        elif 'URL：' in line or 'URL:' in line:
-                            url = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                            item['url'] = url if url != '未知' else ''
-                        elif '摘要：' in line or '摘要:' in line:
-                            item['summary'] = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                    if item['title']:
-                        literature.append(item)
-            logger.info(f"  LLM 搜索补充: {len(literature)} 篇（含RSS）")
-        except Exception as e:
-            logger.warning(f"  LLM 搜索失败: {e}")
+            # 通用搜索
+            try:
+                results = self._tavily_search(f"{kw} 深度分析", max_results=5)
+                for r in results:
+                    if 'mp.weixin.qq.com' not in r.get('url', ''):
+                        literature.append({
+                            'title': r.get('title', ''),
+                            'url': r.get('url', ''),
+                            'source': r.get('url', '').split('/')[2] if r.get('url') else '网络',
+                            'summary': r.get('content', '')[:300],
+                            'full_text': r.get('content', ''),
+                            'search_keyword': kw
+                        })
+                logger.info(f"  通用搜索: {len(results)} 篇")
+            except Exception as e:
+                logger.warning(f"  通用搜索失败: {e}")
 
         # 去重
         seen = set()
         unique = []
         for item in literature:
-            key = item['title']
-            if key and key not in seen:
-                seen.add(key)
+            if item['title'] and item['title'] not in seen:
+                seen.add(item['title'])
                 unique.append(item)
 
-        # 抓取有效 URL 的全文
-        logger.info(f"去重后共 {len(unique)} 篇，尝试抓取全文...")
+        # 对没有全文的条目尝试抓取
         for item in unique[:15]:
-            if item['url'] and item['url'] != '未知':
+            if not item['full_text'] and item['url']:
                 try:
-                    full_text = self._fetch_full_text(item['url'])
-                    item['full_text'] = full_text[:3000]
-                    logger.info(f"  ✓ 抓取: {item['title'][:40]}...")
-                except Exception as e:
-                    logger.warning(f"  ✗ 抓取失败: {item['title'][:30]}")
+                    item['full_text'] = self._fetch_full_text(item['url'])[:3000]
+                    logger.info(f"  ✓ 抓取全文: {item['title'][:40]}...")
+                except Exception:
+                    pass
 
         result = unique[:15]
-        if not result:
-            logger.error("文献采集失败，无法获取任何文献")
-        else:
-            logger.info(f"✅ 文献采集完成，共 {len(result)} 篇")
+        logger.info(f"✅ 文献采集完成，共 {len(result)} 篇")
         return result
+
+    def _tavily_search(self, query: str, max_results: int = 5) -> list:
+        """调用 Tavily Search API"""
+        import urllib.request
+        api_key = os.environ.get('TAVILY_API_KEY', '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')
+        data = json.dumps({
+            'api_key': api_key,
+            'query': query,
+            'max_results': max_results,
+            'include_answer': False
+        }).encode()
+        req = urllib.request.Request(
+            'https://api.tavily.com/search',
+            data=data,
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            result = json.loads(r.read())
+        return result.get('results', [])
 
     def _fetch_full_text(self, url: str) -> str:
         """抓取文章全文"""
@@ -370,7 +362,9 @@ URL：[文章链接，如不确定填"未知"]
         mail_sender.send_html_review_email(
             to='ZaymeShaw199742@outlook.com',
             candidates=candidates,
-            article_date=today
+            article_date=today,
+            topic_info=topic_info,
+            literature=self._current_literature
         )
 
         # 推最高分候选到草稿箱
@@ -400,6 +394,7 @@ URL：[文章链接，如不确定填"未知"]
             if not literature:
                 logger.error("文献采集失败，终止")
                 return False
+            self._current_literature = literature
             topic_designs = self.design_topics(topic_info, literature)
             if not topic_designs:
                 logger.error("选题设计失败，终止")
