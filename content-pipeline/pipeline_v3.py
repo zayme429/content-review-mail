@@ -368,6 +368,7 @@ class ContentPipelineV3:
 
         # 发送审核邮件
         smtp = self.secrets['smtp']
+        smtp['zapier_email'] = self.secrets['review']['zapier_email']
         mail_sender = ReviewMailSender(smtp)
         mail_sender.send_html_review_email(
             to=self.secrets['review']['recipient'],
