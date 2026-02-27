@@ -32,14 +32,16 @@ class ReviewMailSender:
         """
         try:
             # 构建HTML邮件
-            html = self._build_html_email(candidates, article_date, topic_info, literature)
+            server_email = self.smtp.get('zapier_email', to)
+            html = self._build_html_email(candidates, article_date, topic_info, literature, server_email)
             
             # 创建邮件
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f'📄 内容审核 - {article_date} ({len(candidates)}篇完整文章)'
             msg['From'] = f"Content Bot <{self.smtp['from']}>"
             msg['To'] = to
-            msg['Reply-To'] = self.smtp.get('zapier_email', self.smtp.get('from', ''))  # 回复地址
+            msg['Reply-To'] = self.smtp.get('zapier_email', to)
+            server_email = self.smtp.get('zapier_email', to)
             
             msg.attach(MIMEText(html, 'html', 'utf-8'))
             
@@ -57,7 +59,8 @@ class ReviewMailSender:
             return False
     
     def _build_html_email(self, candidates: list, article_date: str,
-                          topic_info: dict = None, literature: list = None) -> str:
+                          topic_info: dict = None, literature: list = None,
+                          server_email: str = '') -> str:
         """构建HTML邮件内容"""
 
         # 主题信息 HTML
@@ -277,10 +280,15 @@ body {{
 
 <div class="info-box">
     <strong>💡 系统工作流说明：</strong><br>
-    • 接收方式：Zapier Webhook（解决IMAP端口限制）<br>
-    • 回复地址：zaymeclawstart.rpd217@zapiermail.com<br>
     • 内容偏好：实战派、配置代码、成本数据（根据反馈固化）<br>
     • 反馈机制：自动记录选择，优化后续生成
+</div>
+
+<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:15px 20px;margin:20px 0;border-radius:0 8px 8px 0;font-size:15px;">
+    <strong>📩 审核回复方式：</strong><br>
+    请新建邮件发送到 <a href="mailto:{server_email}"><strong>{server_email}</strong></a><br>
+    <small>（直接回复此邮件可能无法被系统接收）</small><br><br>
+    回复格式：<code>选A</code> / <code>选B</code> / <code>选C</code>，可附加修改意见
 </div>
 
 {topic_html}
