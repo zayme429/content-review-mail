@@ -150,6 +150,15 @@ class AdvancedContentPipeline:
             else:
                 logger.warning("⚠️ 邮件发送失败，输出到控制台")
                 self._output_console_notification(candidates, today)
+
+            # 步骤5: 推送评分最高的候选到微信草稿箱
+            logger.info("=== 步骤5: 推送主推候选到草稿箱 ===")
+            best_idx = candidates.index(best_candidate) + 1
+            pushed = self._publish_candidate(today, best_idx)
+            if pushed:
+                logger.info(f"✅ 候选 {best_idx}「{best_candidate['topic']}」已推送到草稿箱")
+            else:
+                logger.warning("⚠️ 草稿箱推送失败，可手动执行：python3 pipeline_v2.py --select {today} --candidate {best_idx}")
             
             logger.info("✅ 多候选工作流完成，等待审核")
             return True

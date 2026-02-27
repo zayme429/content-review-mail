@@ -61,13 +61,34 @@ class ReviewMailSender:
         for i, c in enumerate(candidates, 1):
             # 清理内容中的HTML标签防止冲突
             content = c.get('content', '').replace('<', '&lt;').replace('>', '&gt;')
-            
+
+            # 来源信息
+            source_news = c.get('source_news', [])
+            sources_html = ""
+            if source_news:
+                sources_html = "<div class='source-box'><strong>📰 参考来源：</strong><ul>"
+                for s in source_news:
+                    url = s.get('url', '')
+                    title = s.get('title', '')
+                    source = s.get('source', '')
+                    if url:
+                        sources_html += f"<li><a href='{url}'>{title}</a>（{source}）</li>"
+                    else:
+                        sources_html += f"<li>{title}（{source}）</li>"
+                sources_html += "</ul></div>"
+
+            # 选题理由
+            angle_reason = c.get('angle_reason', '')
+            reason_html = f"<div class='reason-box'><strong>💡 选题理由：</strong>{angle_reason}</div>" if angle_reason else ""
+
             candidates_html += f"""
             <div class="candidate">
                 <div class="candidate-header">
                     <h2>候选 {i}：{c['topic']}</h2>
                     <div class="meta">类型：{c.get('angle_type', '标准')} | 字数：{len(content)}字 | 质量分：{c.get('quality_score', 0)}</div>
                 </div>
+                {sources_html}
+                {reason_html}
                 <div class="content">{content}</div>
             </div>
             """
@@ -132,6 +153,31 @@ body {{
     color: #444; 
     white-space: pre-wrap; 
     line-height: 1.8;
+}}
+.source-box {{
+    background: #f0f7ff;
+    border-left: 3px solid #4a9eff;
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+}}
+.source-box ul {{
+    margin: 5px 0 0 0;
+    padding-left: 20px;
+}}
+.source-box a {{
+    color: #0066cc;
+    text-decoration: none;
+}}
+.reason-box {{
+    background: #f6fff0;
+    border-left: 3px solid #52c41a;
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    color: #555;
 }}
 .actions {{ 
     background: #fff3cd; 

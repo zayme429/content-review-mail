@@ -142,7 +142,10 @@ class MultiCandidateGenerator:
             'angle_type': angle_config['name'],
             'quality_score': quality_score,
             'uniqueness_score': uniqueness_score,
-            'word_count': len(article_content or content)
+            'word_count': len(article_content or content),
+            # 来源溯源信息
+            'source_news': [{'title': n['title'], 'source': n['source'], 'url': n.get('url', '')} for n in news_items[:3]],
+            'angle_reason': f"基于{angle_config['name']}策略：{angle_config['focus']}",
         }
     
     def _format_news(self, news_items: List[Dict]) -> str:
